@@ -49,17 +49,16 @@ class MainController:
         return 0
 
     def processSensorData( self ) -> int:
-	color = sensor.color
-	color_rgb = sensor.color_rgb_bytes
-    	print(f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}")
-
-    	# Read the color temperature and lux of the sensor too.
-    	temp = sensor.color_temperature
-    	lux = sensor.lux
-    	print(f"Temperature: {temp}K Lux: {lux}\n")
         return 0
 
+
     def displayData( self ) -> int:
+        color = self.m_sensor.color
+        color_rgb = self.m_sensor.color_rgb_bytes
+        print(f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}")
+        temp = self.m_sensor.color_temperature
+        lux = self.m_sensor.lux
+        print(f"Temperature: {temp}K Lux: {lux}\n")
         self.m_screen.show()
         return 0
 
