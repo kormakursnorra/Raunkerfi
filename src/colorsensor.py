@@ -66,6 +66,7 @@ class MainController:
         color = self.m_sensor.color
         color_rgb = self.m_sensor.color_rgb_bytes
         print(f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}")
+        self.m_output = f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}"
         temp = self.m_sensor.color_temperature
         lux = self.m_sensor.lux
         print(f"Temperature: {temp}K Lux: {lux}\n")  
