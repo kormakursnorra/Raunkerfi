@@ -76,7 +76,7 @@ class MainController:
 
     def displayData( self ) -> int:
         print("In displayData")
-	print(self.m_output)
+        print(self.m_output)
         self.m_draw.text((0,0), self.m_output, fill=255)
         self.m_screen.image(self.m_image)
         self.m_screen.show()
