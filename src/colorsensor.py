@@ -38,28 +38,16 @@ class MainController:
         self.m_sensor.integration_time = 150
         self.m_sensor.gain = 4
 
-        self.m_screen.fill(0)
-        self.m_screen.show()
-
-        #self.m_draw.rectangle((0, 0, self.m_screen.width, self.m_screen.height), outline=255, fill=255)
-
-        # Draw a smaller inner rectangle
-        # self.m_draw.rectangle(
-          #  (
-           #     MainController.BORDER, MainController.BORDER,
-            #    self.m_screen.width - MainController.BORDER - 1,
-            #    self.m_screen.height - MainController.BORDER - 1
-           # ),
-           # outline=0,
-           # fill=0,
-        #)
 
         while True:
+            self.m_screen.fill(0)
+            self.m_screen.show()
             if self.processSensorData() < 0:
                 return -1
             if self.displayData() < 0:
                 return -1
             time.sleep(0.5)
+
 
 
     def processSensorData( self ) -> int:
