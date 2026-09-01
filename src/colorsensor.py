@@ -6,8 +6,7 @@ import digitalio
 import adafruit_ssd1306
 import adafruit_tcs34725
 
-from adafruit_display_text.bitmap_label import Label
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageFont
 
 class MainController:
     WIDTH = 128
@@ -28,14 +27,7 @@ class MainController:
         self.m_sensor = adafruit_tcs34725.TCS34725( self.m_i2c )
         self.m_screen = adafruit_ssd1306.SSD1306_I2C(
             MainController.WIDTH, MainController.HEIGHT, self.m_i2c, addr=0x3C, reset=oled_reset
-        )   
-
-        self.color_output_label = Label(MainController.FONT, text="", scale=2)
-        self.temperature_output_label = Label(MainController.FONT, text="", scale=2)
-        self.lux_output_label = Label(MainController.FONT, text="", scale=2)
-
-        self.m_img = Image.new("RGB", (128, 64), color="black")
-        self.m_draw = ImageDraw.Draw(self.m_img)
+        )
 
     def run( self ) -> int:
 
@@ -45,28 +37,7 @@ class MainController:
         self.m_screen.fill(0)
         self.m_screen.show()
 
-        self.color_output_label.anchor_point = (0, 0)
-        self.color_output_label.anchored_position = (
-            4,
-            MainController.HEIGHT // 2 - 60,
-        )
-        self.temperature_output_label.anchor_point = (0, 0)
-        self.temperature_output_label.anchored_position = (
-            4,
-            MainController.HEIGHT // 2 - 0,
-        )
-        self.lux_output_label.anchor_point = (0, 0)
-        self.lux_output_label.anchored_position = (
-            4,
-            MainController.HEIGHT // 2 + 20,
-        )
-        
-        self.color_output_label
-        self.temperature_output_label
-        self.lux_output_label
-
-
-        while self.m_sensor.active:
+        while True:
             if self.processSensorData() < 0:
                 return -1
 
@@ -78,9 +49,14 @@ class MainController:
         return 0
 
     def processSensorData( self ) -> int:
-        self.color_output_label.text = f"RGB color 3-tuple:\n{self.m_sensor.color_rgb_bytes}"
-        self.temperature_output_label.text = f"Temp: {self.m_sensor.color_temperature}K"
-        self.lux_output_label.text = f"Lux: {self.m_sensor.lux}"
+	color = sensor.color
+	color_rgb = sensor.color_rgb_bytes
+    	print(f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}")
+
+    	# Read the color temperature and lux of the sensor too.
+    	temp = sensor.color_temperature
+    	lux = sensor.lux
+    	print(f"Temperature: {temp}K Lux: {lux}\n")
         return 0
 
     def displayData( self ) -> int:
