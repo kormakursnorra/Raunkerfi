@@ -41,18 +41,18 @@ class MainController:
         self.m_screen.fill(0)
         self.m_screen.show()
 
-        self.m_draw.rectangle((0, 0, self.m_screen.width, self.m_screen.height), outline=255, fill=255)
+        #self.m_draw.rectangle((0, 0, self.m_screen.width, self.m_screen.height), outline=255, fill=255)
 
         # Draw a smaller inner rectangle
-        self.m_draw.rectangle(
-            (
-                MainController.BORDER, MainController.BORDER,
-                self.m_screen.width - MainController.BORDER - 1,
-                self.m_screen.height - MainController.BORDER - 1
-            ),
-            outline=0,
-            fill=0,
-        )
+        # self.m_draw.rectangle(
+          #  (
+           #     MainController.BORDER, MainController.BORDER,
+            #    self.m_screen.width - MainController.BORDER - 1,
+            #    self.m_screen.height - MainController.BORDER - 1
+           # ),
+           # outline=0,
+           # fill=0,
+        #)
 
         while True:
             if self.processSensorData() < 0:
@@ -66,23 +66,18 @@ class MainController:
         color = self.m_sensor.color
         color_rgb = self.m_sensor.color_rgb_bytes
         print(f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}")
-        self.m_output = f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}"
         temp = self.m_sensor.color_temperature
         lux = self.m_sensor.lux
-        print(f"Temperature: {temp}K Lux: {lux}\n")  
+        print(f"Temperature: {temp}K Lux: {lux}\n")
+
+        self.m_output = f"RGB:{color_rgb[0]},{color_rgb[1]},{color_rgb[2]}"
         return 0
 
 
     def displayData( self ) -> int:
-        bbox = MainController.FONT.getbbox(self.m_output)
-        (font_width, font_height) = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        self.m_draw.text(
-            (self.m_screen.width // 2 - font_width // 2, self.m_screen.height // 2 - font_height // 2),
-            self.m_output,
-            font=MainController.FONT,
-            fill=255,
-
-        )
+        print("In displayData")
+	print(self.m_output)
+        self.m_draw.text((0,0), self.m_output, fill=255)
         self.m_screen.image(self.m_image)
         self.m_screen.show()
         return 0
