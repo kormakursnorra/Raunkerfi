@@ -29,11 +29,8 @@ class MainController:
             MainController.WIDTH, MainController.HEIGHT, self.m_i2c, addr=0x3C, reset=oled_reset
         )
         self.m_image = Image.new("1", (self.m_screen.width, self.m_screen.height))
-        
         # Get drawing object to draw on image.
         self.m_draw = ImageDraw.Draw(self.m_image)
-        # Load default font.
-        self.m_font = ImageFont.load_default()
         self.m_output = ""
 
     def run( self ) -> int:
@@ -48,7 +45,7 @@ class MainController:
 
         # Draw a smaller inner rectangle
         self.m_draw.rectangle(
-            ( 
+            (
                 MainController.BORDER, MainController.BORDER,
                 self.m_screen.width - MainController.BORDER - 1,
                 self.m_screen.height - MainController.BORDER - 1
@@ -71,17 +68,17 @@ class MainController:
         print(f"RGB color as 8 bits per channel int: #{color:02X} or as 3-tuple: {color_rgb}")
         temp = self.m_sensor.color_temperature
         lux = self.m_sensor.lux
-        print(f"Temperature: {temp}K Lux: {lux}\n")        
+        print(f"Temperature: {temp}K Lux: {lux}\n")  
         return 0
 
 
     def displayData( self ) -> int:
-        bbox = self.m_font.getbbox(self.m_output)
+        bbox = MainController.FONT.getbbox(self.m_output)
         (font_width, font_height) = bbox[2] - bbox[0], bbox[3] - bbox[1]
         self.m_draw.text(
             (self.m_screen.width // 2 - font_width // 2, self.m_screen.height // 2 - font_height // 2),
             self.m_output,
-            font=self.m_font,
+            font=MainController.FONT,
             fill=255,
 
         )
