@@ -21,7 +21,8 @@ def voltage_to_cm(voltage):
         return None
     return 60.374 * (voltage ** -1.16)
 
-while True:
+print('Press enter to scan, q to quit')
+while (user := input()) != 'q':
     voltage = chan.voltage
     distance_cm = voltage_to_cm(voltage)
 
