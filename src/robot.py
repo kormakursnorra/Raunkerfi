@@ -20,7 +20,7 @@ try:
     slp.on()
     robot = Robot(
         left=Motor('GPIO12', 'GPIO18'),
-        right=Motor('GPIO13', 'GPIO19')
+        right=Motor('GPIO19', 'GPIO13')
         )
 
     # Here starts the code to make the robot move
