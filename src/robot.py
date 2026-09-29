@@ -16,9 +16,12 @@ try:
     direction = None
 
     # Configure your own pins.
-    slp = DigitalOutputDevice('GPIO26')
+    slp = DigitalOutputDevice('GPIO17')
     slp.on()
-    robot = Robot(left=Motor('GPIO12', 'GPIO18'), right=Motor('GPIO13', 'GPIO19'))
+    robot = Robot(
+        left=Motor('GPIO12', 'GPIO18'),
+        right=Motor('GPIO19', 'GPIO13')
+        )
 
     # Here starts the code to make the robot move
     while direction != ord('q'):
