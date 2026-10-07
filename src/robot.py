@@ -4,7 +4,7 @@ import os
 import time
 import curses
 
-from gpiozero import DigitalOutputDevice, Motor, Robot, MCP3008
+from gpiozero import DigitalOutputDevice, Motor, Robot
 
 try:
     stdscr = curses.initscr()
@@ -15,9 +15,7 @@ try:
     stdscr.nodelay(1)  # nodelay(1) give us a -1 back when nothing is pressed
     direction = None
 
-    distance_sensor = MCP3008(channel=0)
-
-    # Configure pins for wheel motors.
+    # Configure your own pins.
     slp = DigitalOutputDevice('GPIO17')
     slp.on()
     robot = Robot(
