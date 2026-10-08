@@ -4,7 +4,7 @@ import adafruit_icm20x
 
 i2c = board.I2C()
 # The library defaults to 0x69; pass the address i2cdetect showed you
-imu = adafruit_icm20x.ICM20948(i2c, address=0x68)
+imu = adafruit_icm20x.ICM20948(i2c, address=0x69)
 
 while True:
     ax, ay, az = imu.acceleration   # m/s^2

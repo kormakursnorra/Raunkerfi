@@ -1,7 +1,7 @@
-import sys
+#import sys
 import time
 import board
-import smbus3
+#import smbus3
 import adafruit_tcs34725
 
 i2c = board.I2C()
