@@ -5,6 +5,7 @@ import time
 import curses
 
 from gpiozero import DigitalOutputDevice, Motor, Robot, MCP3008
+from gpiozero import RotaryEncoder
 
 
 def read_volts3V3(samples=20):
