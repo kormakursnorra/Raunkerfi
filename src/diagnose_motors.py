@@ -5,8 +5,8 @@ Each test asks you to watch/listen and press Enter to continue.
 from time import sleep
 from gpiozero import Device, Motor, RotaryEncoder
  
-left = Motor('GPIO12', 'GPIO18', pwm=True)
-right = Motor('GPIO19', 'GPIO13', pwm=True)
+left = Motor(forward='GPIO12', backward='GPIO18', pwm=True)
+right = Motor(forward='GPIO19', backward='GPIO13', pwm=True)
 left_enc = RotaryEncoder('GPIO25', 'GPIO20', max_steps=0)
 right_enc = RotaryEncoder('GPIO26', 'GPIO5', max_steps=0)
  
