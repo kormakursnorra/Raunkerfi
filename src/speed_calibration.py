@@ -23,7 +23,7 @@ def measure(seconds=1.0) -> tuple[float, float]:
     sleep(seconds)
     dt = monotonic() - time0 # derived/elapsed time
 
-    # control effort = (where we want to be - where we are) * 1/elapsed time
+    # speed = (where we are - where we started) * elapsed time
     return (left_enc.steps - left0) / dt, (right_enc.steps - right0) / dt
 
 
