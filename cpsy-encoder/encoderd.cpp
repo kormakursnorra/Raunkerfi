@@ -14,10 +14,10 @@
 
 #define SOCKET_NAME "/tmp/encoder.sock"
 
-constexpr uint8_t GPIO_A1 = 6;
-constexpr uint8_t GPIO_A2 = 5;
-constexpr uint8_t GPIO_B1 = 24;
-constexpr uint8_t GPIO_B2 = 23;
+constexpr uint8_t GPIO_A1 = 25;
+constexpr uint8_t GPIO_A2 = 20;
+constexpr uint8_t GPIO_B1 = 26;
+constexpr uint8_t GPIO_B2 = 5;
 
 constexpr int RATE  = 40;
 constexpr int STEPS = (4 * 3 * 700) / RATE;
