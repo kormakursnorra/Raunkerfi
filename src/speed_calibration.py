@@ -1,3 +1,12 @@
+"""
+open-loop calibration.
+
+Sweeps the duty cycle and prints the measured speed of each wheel
+in encoder steps per second. 
+
+Output: deadband and feedforward gain for the left and right motor.
+"""
+
 from time import sleep, monotonic
 from gpiozero import Motor, RotaryEncoder
 
