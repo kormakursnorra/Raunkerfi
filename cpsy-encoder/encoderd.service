@@ -1,0 +1,9 @@
+[Unit]
+Description=Track the rotary encoders.
+
+[Service]
+Nice=-10
+ExecStart=/usr/local/bin/encoderd
+
+[Install]
+WantedBy=multi-user.target
