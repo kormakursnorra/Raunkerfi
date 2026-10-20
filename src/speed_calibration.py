@@ -34,7 +34,7 @@ def fit_line(points, mind_speed=20.0):
     are skipped, because they don't lie on the line.
     """
     pts = [(s, d) for d, s in points if s > mind_speed]
-    
+
     n = len(pts) # number of measurements
     if n < 2:
         raise ValueError("Need at least 2 points where the wheel moved")
