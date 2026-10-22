@@ -8,7 +8,10 @@ Output: deadband and feedforward gain for the left and right motor.
 """
 
 from time import sleep, monotonic
-from gpiozero import Motor, RotaryEncoder
+from gpiozero import DigitalOutputDevice, Motor, RotaryEncoder
+
+slp = DigitalOutputDevice('GPIO17')
+slp.on()
 
 left = Motor(forward='GPIO12', backward='GPIO18', pwm=True)
 right = Motor(forward='GPIO19', backward='GPIO13', pwm=True)
@@ -72,6 +75,7 @@ try:
         right_data.append((duty, r))
         print(f"{duty:.1f}, {l:9.1f}, {r:9.1f}")
 finally:
+    slp.off()
     left.stop()
     right.stop()
 

@@ -15,7 +15,7 @@ import math
 from time import sleep, monotonic
  
 from simple_pid import PID
-from gpiozero import Motor, RotaryEncoder
+from gpiozero import DigitalOutputDevice, Motor, RotaryEncoder
 
 
 LOOP_DT = 0.02   # 50 Hz control loop
@@ -66,6 +66,8 @@ class WheelController:
         self.motor.value = duty
         return duty
 
+slp = DigitalOutputDevice('GPIO17')
+slp.on()
 
 left = Motor(forward='GPIO12', backward='GPIO18', pwm=True)
 right = Motor(forward='GPIO19', backward='GPIO13', pwm=True)
@@ -150,5 +152,6 @@ try:
 
 
 finally:
+    slp.off()
     left.stop()
     right.stop()

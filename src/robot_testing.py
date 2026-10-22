@@ -16,7 +16,7 @@ try:
     direction = None
 
     # Configure your own pins.
-    slp = DigitalOutputDevice('GPIO26')
+    slp = DigitalOutputDevice('GPIO17')
     slp.on()
     robot = Robot(left=Motor('GPIO12', 'GPIO18'), right=Motor('GPIO19', 'GPIO13'))
 
