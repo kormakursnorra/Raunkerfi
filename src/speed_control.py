@@ -30,6 +30,8 @@ LOOP_DT = 0.05   # 20 Hz control loop
 LEFT_SIGN = -1
 RIGHT_SIGN = 1
 
+MAX_ACCEL = 2000 
+
 class WheelController:
     """Feedforward + PID speed controller for a single wheel."""
     def __init__(self, wheel_args: dict, k_values: dict, start_steps: int,
@@ -54,8 +56,9 @@ class WheelController:
 
     def set_target(self, steps_per_s):
         """Sets the target speed."""
-        self.target       = steps_per_s
-        self.pid.setpoint = steps_per_s
+        step = MAX_ACCEL * dt
+        self.target += max(-step, min(step, steps_per_s - self.target))
+        self.pid.setpoint = self.target
 
     def update(self, raw_steps, dt):
         """Updates and returns the duty cycle value.
