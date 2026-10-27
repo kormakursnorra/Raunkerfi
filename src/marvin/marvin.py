@@ -8,7 +8,7 @@ import curses
 import adafruit_icm20x
 import adafruit_tcs34725
 
-from gpiozero import DigitalOutputDevice, Motor, Robot, MCP3008, RotaryEncoder
+from gpiozero import DigitalOutputDevice, Motor, Robot, MCP3008
 
 
 def read_volts3v3(sensor: MCP3008, samples=20):
