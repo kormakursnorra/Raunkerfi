@@ -27,8 +27,8 @@ LEFT_SIGN = -1
 RIGHT_SIGN = 1
 
 # Calibration (from speed_calibration.py) and tuned gains (from speed_control.py).
-L_KF, L_DEADBAND = 0.000073, 0.022
-R_KF, R_DEADBAND = 0.000065, 0.042
+L_KF, L_DEADBAND = 0.000093, 0.033
+R_KF, R_DEADBAND = 0.000095, 0.036
 K_VALUES = {"kp": 0.00003, "ki": 0.0001, "kd": 0.0}
 
 # Anti-windup: only integrate when |error| <= I_BAND_FRAC * |target| + I_BAND_MIN.
