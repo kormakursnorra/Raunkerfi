@@ -23,7 +23,7 @@ from time import sleep, monotonic
 
 from marvin.wheel_control import Drive, LOOP_DT
 
-TARGETS = [100, 150, 200, 250, 300, 400, 500]   # steps/s
+TARGETS = [150, 200, 250, 300, 350, 400, 500]   # steps/s
 DECEL_FROM = 800       # steps/s, cruise speed before a 'decel' trial
 CRUISE_S = 1.0         # time at DECEL_FROM before dropping
 SETTLE_S = 1.0         # ignored part after reaching the target
