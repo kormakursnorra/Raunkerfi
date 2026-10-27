@@ -76,7 +76,7 @@ left_enc = RotaryEncoder('GPIO25', 'GPIO20', max_steps=0)
 right_enc = RotaryEncoder('GPIO26', 'GPIO5', max_steps=0)
 
 
-L_KF, L_DEADBAND = 0.0010, 0.08
+L_KF, L_DEADBAND = 0.000307, 0.043
 R_KF, R_DEADBAND = 0.0010, 0.08
 
 KP = 0.0 # the main tunable that relates the error between the current value to the desired value.
