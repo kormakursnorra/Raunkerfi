@@ -18,7 +18,8 @@ from gpiozero import DigitalOutputDevice, Motor
 from .encoder_client import EncoderClient
 
 
-# Keep LOOP_DT >= 1/RATE of encoderd (25 ms by default), see speed_control.py.
+# encoderd publishes counts every 1/RATE s (RATE = 200 -> 5 ms). Keep
+# LOOP_DT well above that so each tick spans many batches.
 LOOP_DT = 0.05     # 20 Hz control loop
 MAX_ACCEL = 2000   # steps/s^2, ramp limit on the target
 
@@ -31,10 +32,12 @@ L_KF, L_DEADBAND = 0.000093, 0.033
 R_KF, R_DEADBAND = 0.000095, 0.036
 K_VALUES = {"kp": 0.00003, "ki": 0.0001, "kd": 0.0}
 
-# Anti-windup: only integrate when |error| <= I_BAND_FRAC * |target| + I_BAND_MIN.
-# Big transients (ramps, coasting down) are left to feedforward + P.
-I_BAND_FRAC = 0.25
-I_BAND_MIN = 50.0      # steps/s
+# Anti-windup: the integral is frozen only while
+#   - the target is still ramping, or
+#   - the wheel is more than COAST_BAND steps/s above target AND still slowing
+#     down (coasting after a speed drop).
+# In every other case it integrates, so it can always fix a wrong feedforward.
+COAST_BAND = 50.0      # steps/s
 
 # Kick-start: below KICK_BELOW steps/s with a non-zero target, use at least
 # KICK_DUTY so the wheel breaks free of stiction. Your logs show break-away
@@ -62,6 +65,7 @@ class WheelController:
                        output_limits=(-0.1, 0.1))
 
         self.target = 0.0
+        self.ramping = False
         self.speed = 0.0       # filtered
         self.raw_speed = 0.0   # unfiltered, last tick
         self.last_steps = self.sign * start_steps
@@ -71,6 +75,7 @@ class WheelController:
         self.motor.stop()
         self.pid.reset()
         self.target = 0.0
+        self.ramping = False
         self.speed = 0.0
         self.raw_speed = 0.0
         self.last_steps = self.sign * raw_steps
@@ -78,7 +83,13 @@ class WheelController:
     def set_target(self, steps_per_s, dt):
         """Moves the target toward steps_per_s, limited by max_accel."""
         step = self.max_accel * dt
-        self.target += max(-step, min(step, steps_per_s - self.target))
+        gap = steps_per_s - self.target
+        if abs(gap) <= step:
+            self.target = float(steps_per_s)   # snap: no float leftovers
+            self.ramping = False
+        else:
+            self.target += math.copysign(step, gap)
+            self.ramping = True
         self.pid.setpoint = self.target
 
     def update(self, raw_steps, dt):
@@ -87,6 +98,7 @@ class WheelController:
         self.raw_speed = (steps - self.last_steps) / dt
         self.last_steps = steps
 
+        prev_speed = self.speed
         self.speed = self.alpha * self.raw_speed + (1 - self.alpha) * self.speed
 
         if self.target == 0:
@@ -96,11 +108,15 @@ class WheelController:
 
         feedforward = self.kf * self.target + math.copysign(self.deadband, self.target)
         
-        # Conditional integration: simple_pid accumulates Ki * error * dt into
-        # its integral, so zeroing Ki for one call freezes the integral.
-        error = self.target - self.speed
+        # Anti-windup (see COAST_BAND). Everything is measured in the target's
+        # direction, so it works the same forwards and backwards.
+        # simple_pid accumulates Ki * error * dt into its integral, so zeroing
+        # Ki for one call freezes the integral without changing it.
+        d = math.copysign(1.0, self.target)
+        above = (self.speed - self.target) * d > COAST_BAND
+        slowing = (self.speed - prev_speed) * d < 0
         ki = self.pid.Ki
-        if abs(error) > I_BAND_FRAC * abs(self.target) + I_BAND_MIN:
+        if self.ramping or (above and slowing):
             self.pid.Ki = 0.0
         try:
             correction = self.pid(self.speed, dt=dt)
