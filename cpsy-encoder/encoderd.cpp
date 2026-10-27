@@ -19,8 +19,8 @@ constexpr uint8_t GPIO_A2 = 20;
 constexpr uint8_t GPIO_B1 = 26;
 constexpr uint8_t GPIO_B2 = 5;
 
-constexpr int RATE  = 40;
-constexpr int STEPS = (4 * 3 * 700) / RATE;
+constexpr int RATE  = 200;
+constexpr int STEPS = (4 * 20 * 700) / RATE;
 
 uint8_t chip;
 encoder_state *left, *right;
