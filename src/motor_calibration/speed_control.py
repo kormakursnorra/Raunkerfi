@@ -17,7 +17,7 @@ from time import sleep, monotonic
 from simple_pid import PID
 from gpiozero import DigitalOutputDevice, Motor
 
-from src.marvin.encoder_client import EncoderClient
+from marvin.encoder_client import EncoderClient
 
 
 # The daemon updates its counts in batches every 1/RATE s (25 ms by default).
