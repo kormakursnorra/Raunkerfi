@@ -15,7 +15,7 @@ import math
 from simple_pid import PID
 from gpiozero import DigitalOutputDevice, Motor
 
-from encoder_client import EncoderClient
+from .encoder_client import EncoderClient
 
 
 # Keep LOOP_DT >= 1/RATE of encoderd (25 ms by default), see speed_control.py.
