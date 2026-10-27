@@ -92,8 +92,8 @@ enc = EncoderClient()
 L_KF, L_DEADBAND = 0.000073, 0.022
 R_KF, R_DEADBAND = 0.000065, 0.042  
 
-KP = 0.0 # the main tunable that relates the error between the current value to the desired value.
-KI = 0.0 # determines how past errors should influence the control effort.
+KP = 0.00003 # the main tunable that relates the error between the current value to the desired value.
+KI = 0.0001  # determines how past errors should influence the control effort.
 KD = 0.0 # used to influence the effort by the rate of change of the error.
 
 k_values = { "kp": KP, "ki": KI, "kd": KD }
@@ -117,7 +117,7 @@ left_ctrl  = WheelController(l_args, k_values, l0)
 right_ctrl = WheelController(r_args, k_values, r0)
 
 # Test profile: (time_s, target steps/s). Step changes reveal the response
-PROFILE = [(0.0, 300), (3.0, 600), (6.0, 200), (9.0, 0), (10.0, None)]
+PROFILE = [(0.0, 600), (3.0, 1200), (6.0, 800), (9.0, 0), (10.0, None)]
 
 def target_at(t):
     current = 0
