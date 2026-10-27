@@ -7,7 +7,7 @@ Control law per wheel:
 Importing this module has no side effects. Hardware is only touched when
 you create a Drive. Used by speed_control.py, min_speed_test.py and marvin.py.
 
-Speeds are in encoder steps per second, same units as calibrate.py.
+Speeds are in encoder steps per second, same units as speed_calibration.py.
 """
 
 import math
@@ -26,7 +26,7 @@ MAX_ACCEL = 2000   # steps/s^2, ramp limit on the target
 LEFT_SIGN = -1
 RIGHT_SIGN = 1
 
-# Calibration (from calibrate.py) and tuned gains (from speed_control.py).
+# Calibration (from speed_calibration.py) and tuned gains (from speed_control.py).
 L_KF, L_DEADBAND = 0.000073, 0.022
 R_KF, R_DEADBAND = 0.000065, 0.042
 K_VALUES = {"kp": 0.00003, "ki": 0.0001, "kd": 0.0}
