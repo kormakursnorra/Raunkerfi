@@ -29,9 +29,18 @@ RIGHT_SIGN = 1
 # Calibration (from calibrate.py) and tuned gains (from speed_control.py).
 L_KF, L_DEADBAND = 0.000073, 0.022
 R_KF, R_DEADBAND = 0.000065, 0.042
-
 K_VALUES = {"kp": 0.00003, "ki": 0.0001, "kd": 0.0}
 
+# Anti-windup: only integrate when |error| <= I_BAND_FRAC * |target| + I_BAND_MIN.
+# Big transients (ramps, coasting down) are left to feedforward + P.
+I_BAND_FRAC = 0.25
+I_BAND_MIN = 50.0      # steps/s
+
+# Kick-start: below KICK_BELOW steps/s with a non-zero target, use at least
+# KICK_DUTY so the wheel breaks free of stiction. Your logs show break-away
+# at about 0.08-0.09 duty. Set KICK_DUTY = 0.0 to disable.
+KICK_DUTY = 0.10
+KICK_BELOW = 30.0      # steps/s
 
 class WheelController:
     """Feedforward + PID speed controller for a single wheel."""
@@ -86,11 +95,29 @@ class WheelController:
             return 0.0
 
         feedforward = self.kf * self.target + math.copysign(self.deadband, self.target)
-        correction = self.pid(self.speed, dt=dt)
-        duty = max(-1.0, min(1.0, feedforward + correction))
-
+        
+        # Conditional integration: simple_pid accumulates Ki * error * dt into
+        # its integral, so zeroing Ki for one call freezes the integral.
+        error = self.target - self.speed
+        ki = self.pid.Ki
+        if abs(error) > I_BAND_FRAC * abs(self.target) + I_BAND_MIN:
+            self.pid.Ki = 0.0
+        try:
+            correction = self.pid(self.speed, dt=dt)
+        finally:
+            self.pid.Ki = ki
+ 
+        duty = feedforward + correction
+ 
+        # Kick-start from (near) standstill, in the target's direction.
+        if abs(self.speed) < KICK_BELOW and abs(duty) < KICK_DUTY:
+            duty = math.copysign(KICK_DUTY, self.target)
+ 
+        duty = max(-1.0, min(1.0, duty))
+ 
         self.motor.value = duty
         return duty
+
 
 
 class Drive:
