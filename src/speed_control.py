@@ -15,16 +15,27 @@ import math
 from time import sleep, monotonic
  
 from simple_pid import PID
-from gpiozero import DigitalOutputDevice, Motor, RotaryEncoder
+from gpiozero import DigitalOutputDevice, Motor
+
+from encoder_client import EncoderClient
 
 
-LOOP_DT = 0.02   # 50 Hz control loop
+# The daemon updates its counts in batches every 1/RATE s (25 ms by default).
+# A loop faster than that sees 0 new steps in some ticks and a double batch in
+# others, so the speed estimate jitters. Keep LOOP_DT >= 1/RATE, or raise RATE
+# in encoderd.cpp (e.g. RATE = 200) if you want a faster loop.
+LOOP_DT = 0.05   # 20 Hz control loop
+
+# Same signs as in speed_calibration.py: positive = forward.
+LEFT_SIGN = -1
+RIGHT_SIGN = 1
 
 class WheelController:
-    """This class sets up a single wheel for """
-    def __init__(self, wheel_args: dict, k_values: dict, filter_alpha=0.5):
+    """Feedforward + PID speed controller for a single wheel."""
+    def __init__(self, wheel_args: dict, k_values: dict, start_steps: int,
+                 filter_alpha=0.5):
         self.motor: Motor            = wheel_args["motor"]
-        self.encoder: RotaryEncoder  = wheel_args["encoder"]
+        self.sign: int               = wheel_args["sign"]
         self.kf: float               = wheel_args["kf"]
         self.deadband: float         = wheel_args["deadband"]
         
@@ -39,16 +50,20 @@ class WheelController:
 
         self.target     = 0.0
         self.speed      = 0.0
-        self.last_steps = wheel_args["encoder"].steps
+        self.last_steps = self.sign * start_steps
 
     def set_target(self, steps_per_s):
         """Sets the target speed."""
         self.target       = steps_per_s
         self.pid.setpoint = steps_per_s
 
-    def update(self, dt):
-        """Updates and returns the duty cycle value."""
-        steps           = self.encoder.steps
+    def update(self, raw_steps, dt):
+        """Updates and returns the duty cycle value.
+
+        raw_steps is this wheel's count from the daemon. Both wheels are read
+        in ONE request per loop so their counts come from the same instant.
+        """
+        steps           = self.sign * raw_steps
         raw_speed       = (steps - self.last_steps) / dt
         self.last_steps = steps
 
@@ -67,17 +82,15 @@ class WheelController:
         return duty
 
 slp = DigitalOutputDevice('GPIO17')
-slp.on()
 
 left = Motor(forward='GPIO12', backward='GPIO18', pwm=True)
 right = Motor(forward='GPIO19', backward='GPIO13', pwm=True)
 
-left_enc = RotaryEncoder('GPIO25', 'GPIO20', max_steps=0)
-right_enc = RotaryEncoder('GPIO26', 'GPIO5', max_steps=0)
+# Encoders come from the encoderd daemon. No RotaryEncoder objects here.
+enc = EncoderClient()
 
-
-L_KF, L_DEADBAND = 0.000307, 0.043
-R_KF, R_DEADBAND = 0.0010, 0.08
+L_KF, L_DEADBAND = 0.000073, 0.022
+R_KF, R_DEADBAND = 0.000065, 0.042  
 
 KP = 0.0 # the main tunable that relates the error between the current value to the desired value.
 KI = 0.0 # determines how past errors should influence the control effort.
@@ -87,20 +100,21 @@ k_values = { "kp": KP, "ki": KI, "kd": KD }
 
 l_args = {
     "motor": left,
-    "encoder": left_enc, 
+    "sign": LEFT_SIGN,
     "kf": L_KF,
     "deadband": L_DEADBAND
 }
 
 r_args = {
     "motor": right,
-    "encoder": right_enc, 
+    "sign": RIGHT_SIGN,
     "kf": R_KF,
     "deadband": R_DEADBAND
 }
 
-left_ctrl  = WheelController(l_args, k_values)
-right_ctrl = WheelController(r_args, k_values)
+l0, r0 = enc.read()
+left_ctrl  = WheelController(l_args, k_values, l0)
+right_ctrl = WheelController(r_args, k_values, r0)
 
 # Test profile: (time_s, target steps/s). Step changes reveal the response
 PROFILE = [(0.0, 300), (3.0, 600), (6.0, 200), (9.0, 0), (10.0, None)]
@@ -113,6 +127,8 @@ def target_at(t):
     return current
 
 try:
+    slp.on()        # wake the driver only once everything is set up
+    sleep(0.01)
     with open("pid_log.csv", "w", newline="", encoding="utf-8") as f:
         log = csv.writer(f)
         log.writerow(["time", "target",
@@ -142,16 +158,16 @@ try:
             left_ctrl.set_target(target)
             right_ctrl.set_target(target)
 
-            ld = left_ctrl.update(dt)
-            rd = right_ctrl.update(dt)
+            l_steps, r_steps = enc.read()
+            ld = left_ctrl.update(l_steps, dt)
+            rd = right_ctrl.update(r_steps, dt)
 
             log.writerow([f"{time:.3f}", target, f"{left_ctrl.speed:.1f}",
                           f"{ld:.3f}", f"{right_ctrl.speed:.1f}", f"{rd:.3f}"])
 
-            sleep(max(0.0, next_tick - monotonic()))
-
 
 finally:
-    slp.off()
-    left.stop()
+    left.stop()     # stop the motors first, then put the driver to sleep
     right.stop()
+    slp.off()
+    enc.close()
