@@ -19,7 +19,7 @@ left_enc = RotaryEncoder('GPIO25', 'GPIO20', max_steps=0)
 right_enc = RotaryEncoder('GPIO26', 'GPIO5', max_steps=0)
 
 LEFT_SIGN = 1
-RIGHT_SIGN = 0
+RIGHT_SIGN = -1
 
 
 def measure(seconds=1.0) -> tuple[float, float]:
