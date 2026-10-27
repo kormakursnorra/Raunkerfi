@@ -46,7 +46,7 @@ class WheelController:
         #
         # set the output_limits=(-0.5, 0.5) caps PIDs contribution
         self.pid   = PID(k_values["kp"], k_values["ki"], k_values["kd"],
-                        setpoint=0.0, sample_time=None, output_limits=(-0.1, 0.1)))
+                        setpoint=0.0, sample_time=None, output_limits=(-0.1, 0.1))
 
         self.target     = 0.0
         self.speed      = 0.0
