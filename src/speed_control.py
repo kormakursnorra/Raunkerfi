@@ -54,7 +54,7 @@ class WheelController:
         self.speed      = 0.0
         self.last_steps = self.sign * start_steps
 
-    def set_target(self, steps_per_s):
+    def set_target(self, steps_per_s, dt):
         """Sets the target speed."""
         step = MAX_ACCEL * dt
         self.target += max(-step, min(step, steps_per_s - self.target))
@@ -158,8 +158,8 @@ try:
             if target is None:
                 break
 
-            left_ctrl.set_target(target)
-            right_ctrl.set_target(target)
+            left_ctrl.set_target(target, dt)
+            right_ctrl.set_target(target, dt)
 
             l_steps, r_steps = enc.read()
             ld = left_ctrl.update(l_steps, dt)
