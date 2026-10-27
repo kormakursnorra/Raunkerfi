@@ -81,8 +81,6 @@ try:
  
     print("duty, left_steps_per_s, right_steps_per_s")
     for duty in DUTIES:
-    # for i in range(1, 11):
-        # duty = i / 10
         left.value = duty
         right.value = duty
         sleep(0.7)  # let the motors reach a steady speed
