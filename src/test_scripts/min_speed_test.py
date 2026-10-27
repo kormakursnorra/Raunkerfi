@@ -21,7 +21,7 @@ import csv
 import statistics as st
 from time import sleep, monotonic
 
-from marvin.wheel_control import Drive, LOOP_DT
+from src.marvin.wheel_control import Drive, LOOP_DT
 
 TARGETS = [100, 150, 200, 250, 300, 400, 500]   # steps/s
 DECEL_FROM = 800       # steps/s, cruise speed before a 'decel' trial
