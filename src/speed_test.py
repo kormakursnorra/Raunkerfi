@@ -10,7 +10,7 @@ enc = EncoderClient()
 try:
     slp.on(); sleep(0.01)
     l0, r0 = enc.read()
-    left.value = right.value = 0.3
+    left.value = right.value = 0.1
     sleep(1.0)
     l1, r1 = enc.read()
 finally:
