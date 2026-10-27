@@ -12,6 +12,8 @@ from gpiozero import DigitalOutputDevice, Motor
 
 from encoder_client import EncoderClient
 
+DUTIES = [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.20]
+
 slp = DigitalOutputDevice('GPIO17')
 
 left = Motor(forward='GPIO12', backward='GPIO18', pwm=True)
@@ -39,14 +41,13 @@ def measure(seconds=1.0) -> tuple[float, float]:
 
 
 
-def fit_line(points, min_speed=20.0):
+def fit_line(points, min_speed=20.0, max_speed=1800.0):
     """Least-squares fit of duty = deadband + kf * speed.
- 
-    points: list of (duty, speed).
-    Points where the wheel barely moved (stalled below the deadband)
-    are skipped, because they don't lie on the line.
+
+    Only uses points where the wheel moved (above min_speed) and the
+    daemon was not saturated (below max_speed).
     """
-    pts = [(s, d) for d, s in points if s > min_speed]  # (speed, duty)
+    pts = [(s, d) for d, s in points if min_speed < s < max_speed]  # (speed, duty)
  
     n = len(pts)
     if n < 2:
@@ -79,8 +80,9 @@ try:
     sleep(0.01)
  
     print("duty, left_steps_per_s, right_steps_per_s")
-    for i in range(1, 11):
-        duty = i / 10
+    for duty in DUTIES:
+    # for i in range(1, 11):
+        # duty = i / 10
         left.value = duty
         right.value = duty
         sleep(0.7)  # let the motors reach a steady speed
