@@ -8,30 +8,34 @@ Output: deadband and feedforward gain for the left and right motor.
 """
 
 from time import sleep, monotonic
-from gpiozero import DigitalOutputDevice, Motor, RotaryEncoder
+from gpiozero import DigitalOutputDevice, Motor
+
+from encoder_client import EncoderClient
 
 slp = DigitalOutputDevice('GPIO17')
 
 left = Motor(forward='GPIO12', backward='GPIO18', pwm=True)
 right = Motor(forward='GPIO19', backward='GPIO13', pwm=True)
 
-left_enc = RotaryEncoder('GPIO25', 'GPIO20', max_steps=0)
-right_enc = RotaryEncoder('GPIO26', 'GPIO5', max_steps=0)
+# Encoders are read from the encoderd daemon, NOT gpiozero.
+# Do not create RotaryEncoder objects on GPIO25/20/26/5: the daemon owns them.
+enc = EncoderClient()
 
-LEFT_SIGN = 1
-RIGHT_SIGN = -1
+LEFT_SIGN = -1
+RIGHT_SIGN = 1
 
 
 def measure(seconds=1.0) -> tuple[float, float]:
-    """Returns a measurement of the left and right motors efforts"""
-    left0, right0 = left_enc.steps, right_enc.steps
+    """Returns the measured speed of the left and right wheels in steps/s."""
+    left0, right0 = enc.read()
     time0 = monotonic()
     sleep(seconds)
+    left1, right1 = enc.read()
     dt = monotonic() - time0
- 
+
     # speed = (where we are - where we started) / elapsed time
-    return (LEFT_SIGN * (left_enc.steps - left0) / dt,
-            RIGHT_SIGN * (right_enc.steps - right0) / dt)
+    return (LEFT_SIGN * (left1 - left0) / dt,
+            RIGHT_SIGN * (right1 - right0) / dt)
 
 
 
@@ -88,6 +92,16 @@ finally:
     left.stop()     # stop the motors first, then put the driver to sleep
     right.stop()
     slp.off()
+    enc.close()
+
+# The daemon can only process STEPS * RATE / 4 = 2100 steps/s per wheel with
+# its default settings. Above that its queue backs up and the counts lag.
+DAEMON_LIMIT = 2100
+for name, data in (("L", left_data), ("R", right_data)):
+    top = max(abs(s) for _, s in data)
+    if top > 0.9 * DAEMON_LIMIT:
+        print(f"WARNING {name}: top speed {top:.0f} steps/s is near the daemon "
+              f"limit of {DAEMON_LIMIT}. Raise STEPS in encoderd.cpp.")
  
  
 for name, data in (("L", left_data), ("R", right_data)):
