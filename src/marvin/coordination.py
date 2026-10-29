@@ -1,4 +1,3 @@
-
 import board
 import adafruit_icm20x
 import adafruit_tcs34725
@@ -6,7 +5,7 @@ from gpiozero import MCP3008
 
 STILL, FORWARD, LEFT, RIGHT, BACKWARD = "s", "f", "l", "r", "b"
 
-INTEGRATION_TIME_MS = 24 
+INTEGRATION_TIME_MS = 24
 COLOR_GAIN          = 4
 
 WHITE_MIN_BRIGHTNESS = 0.60 # fraction of calibrated clean white (covers dirty white)
@@ -39,10 +38,11 @@ class CoordinationController:
         self.imu_compass  = adafruit_icm20x.ICM20948( i2c, address=0x69 )
         self.infra_sensor = MCP3008( channel=0 )  # CE0 by default
 
-        # Additional configurations
+        # Color sensor configurations
         self.color_sensor.integration_time = INTEGRATION_TIME_MS
         self.color_sensor.gain = COLOR_GAIN
         self.saturation = saturation_limit(self.color_sensor.integration_time)
+        self.white_ref = None  # (r, g, b, c) on clean white, set by calibrate_white()
 
         self.distance   = 0.0
         self.turn_angle = 0.0 # + for right turns, - for left turns. 0.0 for neutral
@@ -74,9 +74,10 @@ class CoordinationController:
         return ref
 
     def measure_distance(self, samples=20):
-        """Measures the distance from the average voltage of N sample."""
+        """Measures and returns the distance from the average voltage of N sample."""
         avg_volts = sum(self.infra_sensor.value for _ in range(samples)) / samples * 3.3
         self.distance = 67.7 / (avg_volts + 0.144) - 5.6
+        return avg_volts
 
     def read_color_features(self):
         """Return (brightness, imbalance, green_share, blue_share, red_share) or None.
