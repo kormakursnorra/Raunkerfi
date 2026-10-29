@@ -8,8 +8,10 @@ STILL, FORWARD, LEFT, RIGHT, BACKWARD = "s", "f", "l", "r", "b"
 INTEGRATION_TIME_MS = 24
 COLOR_GAIN          = 4
 
-WHITE_MIN_BRIGHTNESS = 0.60 # fraction of calibrated clean white (covers dirty white)
-WHITE_MAX_IMBALANCE  = 0.15 # 0 = perfectly neutral
+WHITE_REFS = (1536, 1298, 712, 3562)
+WHITE_MIN_BRIGHTNESS = 0.73   # darkest white seen: 0.81
+WHITE_MAX_IMBALANCE  = 0.05  # most unbalanced white seen: 0.012
+SATURATION_LIMIT = 7680
 
 MAX_TURN_ANGLE   = 45.0       # degrees at full deflection
 FULL_ERROR       = 0.40       # green/red share difference that gives MAX_TURN_ANGLE
@@ -27,6 +29,35 @@ def saturation_limit(integration_time_ms):
         limit -= limit // 4
     return limit
 
+def color_features(raw, white_ref, saturation):
+    """Return (brightness, imbalance, green_share, blue_share, red_share) or None.
+ 
+    Channels are white-balanced against white_ref, so clean white gives
+    ~1.0 per channel and equal shares of ~0.33. None means the reading is
+    unreliable (dark/blocked or saturated).
+    """
+    r, g, b, clear = raw
+    if clear <= 0 or clear >= saturation:
+        return None
+
+    wr, wg, wb, wc = white_ref
+    rn, gn, bn = r / wr, g / wg, b / wb
+    total = rn + gn + bn
+    if total <= 0:
+        return None
+
+    brightness = clear / wc
+    peak = max(rn, gn, bn)
+    imbalance = (peak - min(rn, gn, bn)) / peak
+    return brightness, imbalance, gn / total, bn / total, rn / total
+
+
+def is_white(features):
+    """True if the features describe white track (clean or dirty)."""
+    brightness, imbalance = features[0], features[1]
+    return brightness >= WHITE_MIN_BRIGHTNESS and imbalance <= WHITE_MAX_IMBALANCE
+
+
 class CoordinationController:
     """Coordination controller for compass, distance- and color sensor."""
 
@@ -42,7 +73,7 @@ class CoordinationController:
         self.color_sensor.integration_time = INTEGRATION_TIME_MS
         self.color_sensor.gain = COLOR_GAIN
         self.saturation = saturation_limit(self.color_sensor.integration_time)
-        self.white_ref = None  # (r, g, b, c) on clean white, set by calibrate_white()
+        self.white_refs = WHITE_REFS  # override at runtime with calibrate_white()
 
         self.distance   = 0.0
         self.turn_angle = 0.0 # + for right turns, - for left turns. 0.0 for neutral
@@ -55,7 +86,7 @@ class CoordinationController:
         self.direction = (STILL, 0.0)
 
     def calibrate_white(self, samples=10):
-        """Record the clean-white reference. Call with the sensor over clean white track."""
+        """Optional: replace WHITE_REF with a fresh reading. Sensor must be over clean white."""
         totals = [0, 0, 0, 0]
         for _ in range(samples):
             for i, value in enumerate(self.color_sensor.color_raw):
@@ -70,7 +101,7 @@ class CoordinationController:
         if min(ref) <= 0:
             raise RuntimeError("A channel reads 0 on white. Check the LED and wiring.")
 
-        self.white_ref = ref
+        self.white_refs = ref
         return ref
 
     def measure_distance(self, samples=20):
@@ -80,25 +111,8 @@ class CoordinationController:
         return avg_volts
 
     def read_color_features(self):
-        """Return (brightness, imbalance, green_share, blue_share, red_share) or None.
- 
-        Channels are white-balanced against the calibration, so clean white
-        gives ~1.0 per channel and equal shares of ~0.33.
-        """
-        r, g, b, clear = self.color_sensor.color_raw
-        if clear <= 0 or clear >= self.saturation:
-            return None  # dark/blocked or clipped: reading is unreliable
-
-        wr, wg, wb, wc = self.white_ref
-        rn, gn, bn = r / wr, g / wg, b / wb
-        total = rn + gn + bn
-        if total <= 0:
-            return None
-
-        brightness = clear / wc
-        peak = max(rn, gn, bn)
-        imbalance = (peak - min(rn, gn, bn)) / peak
-        return brightness, imbalance, gn / total, bn / total, rn / total
+        """Take one reading and return color_features() for it (or None)."""
+        return color_features(self.color_sensor.color_raw, self.white_refs, self.saturation)
 
     def next_direction(self):
         """Takes a reading of the current track layout and finds the next direction.
@@ -109,18 +123,14 @@ class CoordinationController:
           over red   -> robot is right of the line, turn left (-)
           over white -> lost, keep turning the way we last turned
         """
-        if self.white_ref is None:
-            raise RuntimeError("Call calibrate_white() before next_direction().")
-
         features = self.read_color_features()
         if features is None:
             return self.direction  # bad reading: keep the last command
-
-        brightness, imbalance, green_share, _blue_share, red_share = features
-
-
+ 
+        _brightness, _imbalance, green_share, _blue_share, red_share = features
+ 
         # Case 1: on white, the line is lost. Search toward where it was last seen.
-        if brightness >= WHITE_MIN_BRIGHTNESS and imbalance <= WHITE_MAX_IMBALANCE:
+        if is_white(features):
             if self.turn_angle > 0:
                 self.direction = (RIGHT, MAX_TURN_ANGLE)
             elif self.turn_angle < 0:
@@ -128,13 +138,12 @@ class CoordinationController:
             else:
                 self.direction = (STILL, 0.0)  # no idea which side it went; let caller decide
             return self.direction
-
-
+ 
         # Case 2: on the line. Steer proportionally to green vs red.
         error = green_share - red_share            # + = too far left, - = too far right
         scaled = max(-1.0, min(1.0, error / FULL_ERROR))
         self.turn_angle = scaled * MAX_TURN_ANGLE
-
+ 
         if abs(self.turn_angle) < FORWARD_DEADBAND:
             self.direction = (FORWARD, 0.0)
         elif self.turn_angle > 0:
