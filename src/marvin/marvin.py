@@ -1,15 +1,17 @@
 #! /usr/bin/env python3
 
 import os
-import time
 import board
-import curses
 
 import adafruit_icm20x
 import adafruit_tcs34725
 
-from gpiozero import DigitalOutputDevice, Motor, Robot, MCP3008
+from time import sleep, monotonic
+from gpiozero import MCP3008
 
+from .wheel_control import Driver, LOOP_DT
+
+MIN_SPEED = 375    # constant for line following.
 
 def read_volts3v3(sensor: MCP3008, samples=20):
     """Takes the mean of voltage samples."""
@@ -24,37 +26,46 @@ class Marvin:
     def __init__(self):
         i2c = board.I2C()
         # Initialize all hardware components
-        self.color_sensor = adafruit_tcs34725.TCS34725(i2c)
-        self.imu_compass = adafruit_icm20x.ICM20948(i2c, address=0x69)
-        self.infra_sensor = MCP3008(channel=0)  # CE0 by default
-
-        # Configure the motor pins.
-        self.slp = DigitalOutputDevice('GPIO17')
-        self.wheels = Robot(
-            left=Motor('GPIO12', 'GPIO18'),
-            right=Motor('GPIO19', 'GPIO13')
-            )
+        self.driver       = Driver()
+        self.color_sensor = adafruit_tcs34725.TCS34725( i2c )
+        self.imu_compass  = adafruit_icm20x.ICM20948( i2c, address=0x69 )
+        self.infra_sensor = MCP3008( channel=0 )  # CE0 by default
 
         # Additional configurations
-        self.slp.on()
         self.color_sensor.integration_time = 150  # ms, 2.4 to 614.4; longer = more sensitive
         self.color_sensor.gain = 4                # 1, 4, 16, or 60
-        
-        # Also initialize interactive screen
-        self.stdscr = curses.initscr()
-        self.command = None
-        
-        curses.cbreak()
-        self.stdscr.keypad(1)
-        self.stdscr.addstr(0, 10, "Hit 'q' to quit")
-        self.stdscr.nodelay(1)
+
+    
 
     def follow_line(self):
+        """Main loop of the robot.  """
         try:
-            self.stdscr.refresh()
+            self.driver.start()   # wake the driver only once everything is set up
+            sleep(0.01)
             
-            speed = self.wheels.value
+            t_start  = monotonic()
+            t_last   = t_start
+            nxt_tick = t_start
 
+            while True:
+                nxt_tick += LOOP_DT
+                # Wait first, so dt is never zero on the first pass
+                sleep(max(0.0, nxt_tick - monotonic()))
+
+                t_now  = monotonic()
+                dtime  = t_now - t_last
+                t_last = t_now
+                time   = t_now - t_start
+
+                target = target_at(time)
+                if target is None:
+                    break
+
+                self.driver.set_targets(target, target, dtime)
+                ld, rd = self.driver.update(dtime)
+
+                l, r = self.driver.left, self.driver.right
+            
             # Get the current distance between rover -> object infront
             volts = read_volts3v3(self.infra_sensor)
             distance = volts_to_cm(volts)
@@ -68,28 +79,16 @@ class Marvin:
             mx, my, mz = self.imu_compass.magnetic       # microtesla
 
             time.sleep(0.04)
+        finally:
+            self.shutdown()
 
-        except KeyboardInterrupt:
-            if self.command == ord('q' or 'Q'):
-                self.stop()
-
-    def stop(self):
-
-        self.wheels.stop()
-
-        self.slp.off()
-        curses.nocbreak()
-        self.stdscr.keypad(0)
-        curses.endwin()
+    def shutdown(self):
+        self.driver.stop()
 
 
 def main():
     marvin = Marvin()
-    try:
-        while True:
-            marvin.follow_line()
-    finally:
-        marvin.stop()
+    marvin.follow_line()
 
 
 
