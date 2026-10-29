@@ -12,7 +12,7 @@ anti-windup, kick-start).
 import csv
 from time import sleep, monotonic
 
-from marvin.wheel_control import Driver, LOOP_DT
+from marvin.wheel_control import DriveController, LOOP_DT
 
 KP = 0.00003   # reaction to the current error
 KI = 0.0001    # removes the leftover steady error
@@ -34,7 +34,7 @@ def target_at(t):
 
 
 def main():
-    drive = Driver(k_values={"kp": KP, "ki": KI, "kd": KD})
+    drive = DriveController(k_values={"kp": KP, "ki": KI, "kd": KD})
     try:
         drive.start()   # wake the driver only once everything is set up
         sleep(0.01)
@@ -72,7 +72,7 @@ def main():
                               f"{r.target:.1f}", f"{r.raw_speed:.1f}",
                               f"{r.speed:.1f}", f"{rd:.3f}"])
     finally:
-        drive.stop()   # stops the motors, then puts the driver to sleep
+        drive.shutdown()   # stops the motors, then puts the driver to sleep
 
 
 if __name__ == "__main__":

@@ -136,7 +136,7 @@ class WheelController:
 
 
 
-class Driver:
+class DriveController:
     """Both wheels, the driver's sleep pin and the encoder client together."""
 
     def __init__(self, k_values=K_VALUES):
@@ -173,7 +173,7 @@ class Driver:
         self.left.reset(l_steps)
         self.right.reset(r_steps)
 
-    def stop(self):
+    def shutdown(self):
         """Stop the motors first, then put the driver to sleep."""
         self.left.motor.stop()
         self.right.motor.stop()
