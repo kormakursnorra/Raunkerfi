@@ -1,6 +1,6 @@
 from time import sleep
 from gpiozero import DigitalOutputDevice, Motor
-from src.marvin.encoder_client import EncoderClient
+from src.rover.encoder_client import EncoderClient
 
 slp = DigitalOutputDevice('GPIO17')
 left = Motor(forward='GPIO12', backward='GPIO18', pwm=True)

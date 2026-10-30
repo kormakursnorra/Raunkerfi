@@ -10,7 +10,7 @@ Output: deadband and feedforward gain for the left and right motor.
 from time import sleep, monotonic
 from gpiozero import DigitalOutputDevice, Motor
 
-from marvin.encoder_client import EncoderClient
+from rover.encoder_client import EncoderClient
 
 DUTIES = [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.20]
 

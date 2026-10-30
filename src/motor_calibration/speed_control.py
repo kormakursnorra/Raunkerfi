@@ -12,7 +12,7 @@ anti-windup, kick-start).
 import csv
 from time import sleep, monotonic
 
-from marvin.wheel_control import DriveController, LOOP_DT
+from rover.wheel_control import DriveController, LOOP_DT
 
 KP = 0.00003   # reaction to the current error
 KI = 0.0001    # removes the leftover steady error

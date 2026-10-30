@@ -21,7 +21,7 @@ import csv
 import statistics as st
 from time import sleep, monotonic
 
-from marvin.wheel_control import Drive, LOOP_DT
+from rover.wheel_control import DriveController, LOOP_DT
 
 TARGETS = [150, 200, 250, 300, 350, 400, 500]   # steps/s
 DECEL_FROM = 800       # steps/s, cruise speed before a 'decel' trial
@@ -109,7 +109,7 @@ def lowest_reliable(rows, mode):
 
 
 def main():
-    drive = Drive()
+    drive = DriveController()
     rows = {}
     try:
         drive.start()
@@ -133,7 +133,7 @@ def main():
                               + "  ".join(f"{w}={'ok' if r['ok'] else 'FAIL'}"
                                           for w, r in res.items()))
     finally:
-        drive.close()
+        drive.shutdown()
 
     print()
     print(f"{'target':>6} {'mode':5} {'dir':4} {'wheel':5} {'mean':>7} {'err%':>6} "
