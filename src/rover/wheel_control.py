@@ -30,7 +30,7 @@ RIGHT_SIGN = 1
 # Calibration (from speed_calibration.py) and tuned gains (from speed_control.py).
 L_KF, L_DEADBAND = 0.000093, 0.033
 R_KF, R_DEADBAND = 0.000095, 0.036
-K_VALUES = {"kp": 0.00003, "ki": 0.0001, "kd": 0.0}
+K_VALUES = {"kp": 0.0003, "ki": 0.0001, "kd": 0.0}
 
 # Anti-windup: the integral is frozen only while
 #   - the target is still ramping, or
@@ -40,10 +40,9 @@ K_VALUES = {"kp": 0.00003, "ki": 0.0001, "kd": 0.0}
 COAST_BAND = 50.0      # steps/s
 
 # Kick-start: below KICK_BELOW steps/s with a non-zero target, use at least
-# KICK_DUTY so the wheel breaks free of stiction. Your logs show break-away
-# at about 0.08-0.09 duty. Set KICK_DUTY = 0.0 to disable.
-KICK_DUTY = 0.10
-KICK_BELOW = 30.0      # steps/s
+# KICK_DUTY so the wheel breaks free of stiction.
+KICK_DUTY  = 0.15
+KICK_BELOW = 30.0 # steps/s
 
 class WheelController:
     """Feedforward + PID speed controller for a single wheel."""
@@ -62,7 +61,7 @@ class WheelController:
         # output_limits caps the PID's contribution to +-0.1 duty.
         self.pid = PID(k_values["kp"], k_values["ki"], k_values["kd"],
                        setpoint=0.0, sample_time=None,
-                       output_limits=(-0.1, 0.1))
+                       output_limits=(-0.3, 0.3))
 
         self.target = 0.0
         self.ramping = False

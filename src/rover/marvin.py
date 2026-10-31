@@ -5,7 +5,7 @@ from .log_run import RunLogger, default_log_path
 from .wheel_control import DriveController, LOOP_DT
 from .coordination import CoordinationController, MAX_TURN_ANGLE, STILL
 
-BASE_SPPED  = 375   # constant speed for following the line
+BASE_SPPED  = 425   # constant speed for following the line
 STOP_VOLTS  = 2.52  # IR voltage at around 20 cm
 STILL_TICKS = 10    # stop after this many consecutive STILL ticks  (0.5 s)
 
@@ -54,13 +54,11 @@ class Marvin:
                 if distance >= STOP_VOLTS:
                     return f"Object at about 20 cm  ({distance:.2f} V)"
 
-
-                direction, turn_angle = self.coordination.next_direction()
-
                 t_now  = monotonic()
                 dtime  = t_now - t_last
                 t_last = t_now
 
+                direction, turn_angle = self.coordination.next_direction()
                 left_target, right_target = 0.0, 0.0
 
                 if direction == STILL:
