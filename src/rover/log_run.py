@@ -4,7 +4,7 @@ from datetime import datetime
 FIELDS = [
     "t", "dt", "volts",
     "r", "g", "b", "c",                                  # raw colour reading
-    "bright", "imbalance", "green", "blue", "red",       # features (blank = bad reading)
+    "bright", "whiteness", "lineness",                   # features (blank = bad reading)
     "error", "direction", "angle",                       # steering decision
     "l_target_cmd", "r_target_cmd",                      # what we asked for
     "l_target", "r_target",                              # after the accel ramp
@@ -47,12 +47,11 @@ class RunLogger:
         raw = coordination.last_raw or ("",) * 4
         feats = coordination.last_features
         if feats is None:
-            feats_cols, error = [""] * 5, ""
+            feats_cols, error = [""] * 3, ""
         else:
-            bright, imbalance, green, blue, red = feats
-            feats_cols = [f"{bright:.3f}", f"{imbalance:.3f}",
-                          f"{green:.3f}", f"{blue:.3f}", f"{red:.3f}"]
-            error = f"{green - red:+.3f}"
+            bright, whiteness, lineness, err = feats
+            feats_cols = [f"{bright:.3f}", f"{whiteness:.3f}", f"{lineness:.3f}"]
+            error = f"{err:+.3f}"
 
         lw, rw = driver.left, driver.right
         self._writer.writerow([
