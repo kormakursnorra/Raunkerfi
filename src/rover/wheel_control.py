@@ -21,6 +21,12 @@ from .encoder_client import EncoderClient
 # encoderd publishes counts every 1/RATE s (RATE = 200 -> 5 ms). Keep
 # LOOP_DT well above that so each tick spans many batches.
 LOOP_DT = 0.05     # 20 Hz control loop
+
+# Speed filter: 1.0 = no filtering. 0.5 added about a tick of lag, which made
+# the wheels answer steering commands ~3 ticks (150 ms) late.
+FILTER_ALPHA = 1.0
+
+
 MAX_ACCEL = 8000   # steps/s^2, ramp limit on the target
 
 # Positive = forward.
@@ -48,7 +54,7 @@ class WheelController:
     """Feedforward + PID speed controller for a single wheel."""
 
     def __init__(self, wheel_args: dict, k_values: dict, start_steps: int,
-                 filter_alpha=0.5, max_accel=MAX_ACCEL):
+                 filter_alpha=FILTER_ALPHA, max_accel=MAX_ACCEL):
         self.motor: Motor   = wheel_args["motor"]
         self.sign: int      = wheel_args["sign"]
         self.kf: float      = wheel_args["kf"]
