@@ -29,7 +29,6 @@ STEER_GAIN       = 0.5        # fraction of MAX_TURN_ANGLE used at full error. 1
                               # behaviour (pivot every time): wobbled with a 0.5 s period
                               # while the circle only needed ~8 deg on average.
 FORWARD_DEADBAND = 5.0        # degrees; smaller turns are labelled FORWARD (angle is kept)
-WHITE_BOOST      = 2.5        # extra degrees per all-white tick: 22.5 -> 45 in 5 ticks (0.25 s)
 SEARCH_TICKS     = 14         # all-white this long (0.7 s): assume we crossed the line, switch edge
 LOST_TICKS       = 40         # report STILL after this many all-white readings in a row
 
@@ -122,11 +121,10 @@ class CoordinationController:
 
     def next_direction(self):
         """Read the sensor and return (direction, turn_angle).
- 
+
         Proportional edge following. The target is the edge (lineness 0.5):
           more white than target -> turn toward the line side
           more line than target  -> turn toward the white side
-        Fully white -> turn harder each tick (WHITE_BOOST), up to a full pivot.
         Fully white for SEARCH_TICKS readings -> switch to the other edge.
         Fully white for LOST_TICKS readings in a row -> STILL (line lost).
         """
@@ -149,16 +147,10 @@ class CoordinationController:
         else:
             self.white_count = 0
 
-
         # error > 0: too far onto white. LEFT_EDGE has the line on the right,
         # so a positive error means turn right (+).
         error = 0.5 - lineness
-        steer = (error / 0.5) * STEER_GAIN * MAX_TURN_ANGLE
-        if self.white_count > 0:
-            # Fully on white: the gentle gain was not enough for this bend.
-            # Turn harder every tick we stay off, up to a full pivot.
-            steer = min(MAX_TURN_ANGLE, steer + WHITE_BOOST * self.white_count)
-        self.turn_angle = self.edge * steer
+        self.turn_angle = self.edge * (error / 0.5) * STEER_GAIN * MAX_TURN_ANGLE
 
         if abs(self.turn_angle) < FORWARD_DEADBAND:
             self.direction = (FORWARD, self.turn_angle)
@@ -167,7 +159,6 @@ class CoordinationController:
         else:
             self.direction = (LEFT, self.turn_angle)
         return self.direction
-
 
     def shutdown(self):
         """Close/shut down all units."""
