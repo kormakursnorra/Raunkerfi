@@ -52,6 +52,10 @@ class Marvin:
                 # for accuracy, distance is measured by voltage
                 distance = self.coordination.measure_distance()
                 if distance >= STOP_VOLTS:
+                    # Obstacle: actually stop. A bare `continue` here skipped
+                    # driver.update(), so the motors kept their last duty.
+                    self.driver.reset()
+                    self.coordination.reset()
                     continue
 
                 t_now  = monotonic()
@@ -74,6 +78,7 @@ class Marvin:
 
                 log.tick(t_now - t_start, dtime, distance, self.coordination,
                          self.driver, direction, turn_angle, (left_target, right_target), duties)
+
 
 
 

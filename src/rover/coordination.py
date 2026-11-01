@@ -32,6 +32,27 @@ FORWARD_DEADBAND = 5.0        # degrees; smaller turns are labelled FORWARD (ang
 SEARCH_TICKS     = 14         # all-white this long (0.7 s): assume we crossed the line, switch edge
 LOST_TICKS       = 40         # report STILL after this many all-white readings in a row
 
+# Damping. The wheels answer a steering command ~3 ticks (150 ms) late
+# (marvin-20261101-172530.csv), which turns a pure P controller into a
+# 0.45 s limit cycle. The D term reacts to lineness *changing*, before the
+# error itself gets big. Start here and tune: raise until the wobble shrinks,
+# back off if it gets twitchy on sensor noise.
+STEER_KD         = 0.6        # same units as the normalised error (error/0.5)
+
+# Tight turns. In the log the sensor sat fully on the line for ~30 ticks while
+# steering was capped at STEER_GAIN, then slid out the far side. While pinned,
+# grow the gain toward a full pivot instead of staying capped.
+PINNED_LINENESS  = 0.9        # "fully on the line"
+BOOST_AFTER      = 4          # normal wobble pins for <= 4 ticks; boost only beyond that
+BOOST_PER_TICK   = 0.08       # extra gain per tick past BOOST_AFTER (0.5 -> 1.0 in ~6 ticks)
+MAX_GAIN         = 1.0        # 1.0 = full MAX_TURN_ANGLE = pivot on the inner wheel
+
+# Crossing detection. Normal wobble pins the sensor for at most 4 ticks.
+# A longer pin followed by white means we went across the whole line and are
+# on its far side, where the current edge logic steers the wrong way.
+CROSS_TICKS      = 6          # pinned at least this long ...
+CROSS_RECENT     = 8          # ... and the pin ended at most this many ticks ago
+
 
 def saturation_limit(integration_time_ms):
     """Usable clear-channel ceiling per the ams DN40 app note.
@@ -65,6 +86,10 @@ class CoordinationController:
         self.turn_angle = 0.0  # + right, - left
         self.direction = (STILL, 0.0)
         self.white_count = 0
+        self.prev_error = 0.0
+        self.pin_streak = 0     # consecutive pinned ticks right now
+        self.last_streak = 0    # length of the most recent finished pin
+        self.since_pin = 99     # ticks since that pin ended
 
         self.last_raw      = None   # (r, g, b, clear) of the latest reading
         self.last_features = None   # (brightness, whiteness, lineness, error) or None
@@ -74,6 +99,10 @@ class CoordinationController:
         self.turn_angle = 0.0
         self.direction = (STILL, 0.0)
         self.white_count = 0
+        self.prev_error = 0.0
+        self.pin_streak = 0
+        self.last_streak = 0
+        self.since_pin = 99
 
     def calibrate_white(self, samples=10):
         """Replace WHITE_REFS with a fresh reading. Sensor must be over clean white."""
@@ -132,7 +161,24 @@ class CoordinationController:
         if lineness is None:
             return self.direction  # bad reading: keep the last command
 
+        # Track how long we have been fully on the line.
+        if lineness >= PINNED_LINENESS:
+            self.pin_streak += 1
+            self.since_pin = 0
+        else:
+            if self.pin_streak:
+                self.last_streak = self.pin_streak
+            self.pin_streak = 0
+            self.since_pin += 1
+
         if lineness <= 0.0:
+            if (self.white_count == 0 and self.last_streak >= CROSS_TICKS
+                    and self.since_pin <= CROSS_RECENT):
+                # Long pin, then white: we slid across the line. Switch edge
+                # now instead of waiting SEARCH_TICKS turning the wrong way.
+                self.edge = -self.edge
+                self.last_streak = 0
+                self.prev_error = 0.0   # no D kick from the flip
             self.white_count += 1
             if self.white_count == SEARCH_TICKS:
                 # Still white after turning toward the line for a while: we most
@@ -149,8 +195,16 @@ class CoordinationController:
 
         # error > 0: too far onto white. LEFT_EDGE has the line on the right,
         # so a positive error means turn right (+).
-        error = 0.5 - lineness
-        self.turn_angle = self.edge * (error / 0.5) * STEER_GAIN * MAX_TURN_ANGLE
+        error = (0.5 - lineness) / 0.5           # normalised to [-1, 1]
+        d_error = error - self.prev_error
+        self.prev_error = error
+
+        # Stuck on either side (on the line, or on white) -> steer harder.
+        stuck = max(self.pin_streak, self.white_count) - BOOST_AFTER
+        gain = min(MAX_GAIN, STEER_GAIN + BOOST_PER_TICK * max(0, stuck))
+        u = gain * error + STEER_KD * d_error
+        u = max(-1.0, min(1.0, u))
+        self.turn_angle = self.edge * u * MAX_TURN_ANGLE
 
         if abs(self.turn_angle) < FORWARD_DEADBAND:
             self.direction = (FORWARD, self.turn_angle)
