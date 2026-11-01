@@ -1,5 +1,4 @@
 import board
-import adafruit_icm20x
 import adafruit_tcs34725
 from gpiozero import MCP3008
 
@@ -8,7 +7,7 @@ STILL, FORWARD, LEFT, RIGHT, BACKWARD = "s", "f", "l", "r", "b"
 INTEGRATION_TIME_MS = 24
 COLOR_GAIN          = 4
 
-WHITE_REFS = (1536, 1298, 712, 3562)
+WHITE_REFS = (1536, 1298, 712, 3562)   # (r, g, b, clear) over white canvas
 
 # Whiteness = smallest white-balanced channel (min of r/wr, g/wg, b/wb).
 # White canvas lifts ALL channels, so whiteness is high. Black tape and any
@@ -27,16 +26,13 @@ EDGE = LEFT_EDGE
 
 MAX_TURN_ANGLE   = 45.0       # degrees at full deflection
 FORWARD_DEADBAND = 5.0        # degrees; smaller turns are labelled FORWARD (angle is kept)
+SEARCH_TICKS     = 10         # all-white this long (0.5 s): assume we crossed the line, switch edge
 LOST_TICKS       = 40         # report STILL after this many all-white readings in a row
-
-# WHITE_MIN_BRIGHTNESS = 0.73   # darkest white seen: 0.81
-# WHITE_MAX_IMBALANCE  = 0.05   # most unbalanced white seen: 0.012
-# SATURATION_LIMIT = 7680
 
 
 def saturation_limit(integration_time_ms):
     """Usable clear-channel ceiling per the ams DN40 app note.
- 
+
     1024 counts per 2.4 ms step, capped at 65535, minus 25% ripple margin
     below 150 ms (same rule the Adafruit library uses).
     """
@@ -46,11 +42,12 @@ def saturation_limit(integration_time_ms):
         limit -= limit // 4
     return limit
 
+
 class CoordinationController:
-    """Coordination controller for compass, distance- and color sensor."""
+    """Coordination controller for the distance and colour sensors."""
 
     def __init__(self, edge=EDGE):
-        i2c = board.I2C() # Initialize I2C bus
+        i2c = board.I2C()
 
         self.color_sensor = adafruit_tcs34725.TCS34725(i2c)
         self.infra_sensor = MCP3008(channel=0)  # CE0 by default
@@ -70,19 +67,39 @@ class CoordinationController:
         self.last_features = None   # (brightness, whiteness, lineness, error) or None
 
     def reset(self):
-        """Reset all units and forget their history."""
+        """Forget steering history."""
         self.turn_angle = 0.0
         self.direction = (STILL, 0.0)
+        self.white_count = 0
+
+    def calibrate_white(self, samples=10):
+        """Replace WHITE_REFS with a fresh reading. Sensor must be over clean white."""
+        totals = [0, 0, 0, 0]
+        for _ in range(samples):
+            for i, value in enumerate(self.color_sensor.color_raw):
+                totals[i] += value
+        ref = tuple(t / samples for t in totals)
+
+        if ref[3] >= self.saturation:
+            raise RuntimeError(
+                f"White saturates the sensor (C={ref[3]:.0f}, limit={self.saturation}). "
+                "Lower gain or integration time."
+            )
+        if min(ref) <= 0:
+            raise RuntimeError("A channel reads 0 on white. Check the LED and wiring.")
+
+        self.white_refs = ref
+        return ref
 
     def measure_distance(self, samples=20):
-        """Measures and returns the distance from the average voltage of N sample."""
+        """Returns the average IR voltage of N samples (also stores a cm estimate)."""
         avg_volts = sum(self.infra_sensor.value for _ in range(samples)) / samples * 3.3
         self.distance = 67.7 / (avg_volts + 0.144) - 5.6
         return avg_volts
 
     def read_line(self):
         """Return lineness in [0, 1] (0 = white canvas, 1 = on the line), or None.
- 
+
         None means the reading is unreliable (blocked or saturated).
         """
         r, g, b, clear = self.color_sensor.color_raw
@@ -101,10 +118,11 @@ class CoordinationController:
 
     def next_direction(self):
         """Read the sensor and return (direction, turn_angle).
- 
+
         Proportional edge following. The target is the edge (lineness 0.5):
           more white than target -> turn toward the line side
           more line than target  -> turn toward the white side
+        Fully white for SEARCH_TICKS readings -> switch to the other edge.
         Fully white for LOST_TICKS readings in a row -> STILL (line lost).
         """
         lineness = self.read_line()
@@ -113,6 +131,12 @@ class CoordinationController:
 
         if lineness <= 0.0:
             self.white_count += 1
+            if self.white_count == SEARCH_TICKS:
+                # Still white after turning toward the line for a while: we most
+                # likely overshot across the line and are on its far side, where
+                # turning "toward the line" points away from it. Follow the
+                # other edge instead, which turns us back. Either edge works.
+                self.edge = -self.edge
             if self.white_count >= LOST_TICKS:
                 self.turn_angle = 0.0
                 self.direction = (STILL, 0.0)
@@ -137,22 +161,3 @@ class CoordinationController:
         """Close/shut down all units."""
         self.color_sensor.active = False
         self.infra_sensor.close()
-
-    def _calibrate_white(self, samples=10):
-        """Optional: replace WHITE_REF with a fresh reading. Sensor must be over clean white."""
-        totals = [0, 0, 0, 0]
-        for _ in range(samples):
-            for i, value in enumerate(self.color_sensor.color_raw):
-                totals[i] += value
-        ref = tuple(t / samples for t in totals)
-    
-        if ref[3] >= self.saturation:
-            raise RuntimeError(
-                f"White saturates the sensor (C={ref[3]:.0f}, limit={self.saturation}). "
-                "Lower gain or integration time."
-            )
-        if min(ref) <= 0:
-            raise RuntimeError("A channel reads 0 on white. Check the LED and wiring.")
-
-        self.white_refs = ref
-        return ref

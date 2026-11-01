@@ -21,7 +21,7 @@ from .encoder_client import EncoderClient
 # encoderd publishes counts every 1/RATE s (RATE = 200 -> 5 ms). Keep
 # LOOP_DT well above that so each tick spans many batches.
 LOOP_DT = 0.05     # 20 Hz control loop
-MAX_ACCEL = 2000   # steps/s^2, ramp limit on the target
+MAX_ACCEL = 8000   # steps/s^2, ramp limit on the target
 
 # Positive = forward.
 LEFT_SIGN = -1
@@ -58,7 +58,7 @@ class WheelController:
         self.max_accel = max_accel
 
         # sample_time=None: we decide when the PID runs.
-        # output_limits caps the PID's contribution to +-0.1 duty.
+        # output_limits caps the PID's contribution to +-0.3 duty.
         self.pid = PID(k_values["kp"], k_values["ki"], k_values["kd"],
                        setpoint=0.0, sample_time=None,
                        output_limits=(-0.3, 0.3))
