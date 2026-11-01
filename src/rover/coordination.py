@@ -24,9 +24,12 @@ WHITE_WHITENESS = 0.55        # dimmest white seen
 LEFT_EDGE, RIGHT_EDGE = +1, -1
 EDGE = LEFT_EDGE
 
-MAX_TURN_ANGLE   = 45.0       # degrees at full deflection
+MAX_TURN_ANGLE   = 45.0       # degrees at full deflection (full pivot on one wheel)
+STEER_GAIN       = 0.5        # fraction of MAX_TURN_ANGLE used at full error. 1.0 = old
+                              # behaviour (pivot every time): wobbled with a 0.5 s period
+                              # while the circle only needed ~8 deg on average.
 FORWARD_DEADBAND = 5.0        # degrees; smaller turns are labelled FORWARD (angle is kept)
-SEARCH_TICKS     = 10         # all-white this long (0.5 s): assume we crossed the line, switch edge
+SEARCH_TICKS     = 14         # all-white this long (0.7 s): assume we crossed the line, switch edge
 LOST_TICKS       = 40         # report STILL after this many all-white readings in a row
 
 
@@ -147,7 +150,7 @@ class CoordinationController:
         # error > 0: too far onto white. LEFT_EDGE has the line on the right,
         # so a positive error means turn right (+).
         error = 0.5 - lineness
-        self.turn_angle = self.edge * (error / 0.5) * MAX_TURN_ANGLE
+        self.turn_angle = self.edge * (error / 0.5) * STEER_GAIN * MAX_TURN_ANGLE
 
         if abs(self.turn_angle) < FORWARD_DEADBAND:
             self.direction = (FORWARD, self.turn_angle)
