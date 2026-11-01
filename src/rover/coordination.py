@@ -9,13 +9,30 @@ INTEGRATION_TIME_MS = 24
 COLOR_GAIN          = 4
 
 WHITE_REFS = (1536, 1298, 712, 3562)
-WHITE_MIN_BRIGHTNESS = 0.73   # darkest white seen: 0.81
-WHITE_MAX_IMBALANCE  = 0.05   # most unbalanced white seen: 0.012
-SATURATION_LIMIT = 7680
+
+# Whiteness = smallest white-balanced channel (min of r/wr, g/wg, b/wb).
+# White canvas lifts ALL channels, so whiteness is high. Black tape and any
+# coloured stripe (red, green, blue, ...) leave at least one channel low, so
+# whiteness is low. Stripe colour and stripe order do not matter.
+# Values from marvin-20261031-154850.csv:
+#   coloured line: 0.08 .. 0.19     white canvas: 0.55 .. 1.06
+LINE_WHITENESS  = 0.10        # typical reading fully on the line
+WHITE_WHITENESS = 0.55        # dimmest white seen
+
+# Edge following: the robot tracks ONE edge of the line, not its centre.
+#   LEFT_EDGE:  white on the robot's left, line on its right
+#   RIGHT_EDGE: line on the robot's left, white on its right
+LEFT_EDGE, RIGHT_EDGE = +1, -1
+EDGE = LEFT_EDGE
 
 MAX_TURN_ANGLE   = 45.0       # degrees at full deflection
-FULL_ERROR       = 0.40       # green/red share difference that gives MAX_TURN_ANGLE
-FORWARD_DEADBAND = 5.0        # degrees; smaller turns are reported as FORWARD
+FORWARD_DEADBAND = 5.0        # degrees; smaller turns are labelled FORWARD (angle is kept)
+LOST_TICKS       = 40         # report STILL after this many all-white readings in a row
+
+# WHITE_MIN_BRIGHTNESS = 0.73   # darkest white seen: 0.81
+# WHITE_MAX_IMBALANCE  = 0.05   # most unbalanced white seen: 0.012
+# SATURATION_LIMIT = 7680
+
 
 def saturation_limit(integration_time_ms):
     """Usable clear-channel ceiling per the ams DN40 app note.
@@ -32,33 +49,94 @@ def saturation_limit(integration_time_ms):
 class CoordinationController:
     """Coordination controller for compass, distance- and color sensor."""
 
-    def __init__(self):
+    def __init__(self, edge=EDGE):
         i2c = board.I2C() # Initialize I2C bus
 
-        # Initialize all hardware components
-        self.color_sensor = adafruit_tcs34725.TCS34725( i2c )
-        self.imu_compass  = adafruit_icm20x.ICM20948( i2c, address=0x69 )
-        self.infra_sensor = MCP3008( channel=0 )  # CE0 by default
+        self.color_sensor = adafruit_tcs34725.TCS34725(i2c)
+        self.infra_sensor = MCP3008(channel=0)  # CE0 by default
 
-        # Color sensor configurations
         self.color_sensor.integration_time = INTEGRATION_TIME_MS
         self.color_sensor.gain = COLOR_GAIN
         self.saturation = saturation_limit(self.color_sensor.integration_time)
         self.white_refs = WHITE_REFS  # override at runtime with calibrate_white()
 
-        self.distance   = 0.0
-        self.turn_angle = 0.0  # + for right turns, - for left turns. 0.0 for neutral
-        self.direction  = ( STILL, self.turn_angle )
-          
-        self.last_raw      = None   # (r, g, b, clear) of the latest reading
-        self.last_features = None   # color_features() of it, or None
+        self.edge = edge
+        self.distance = 0.0
+        self.turn_angle = 0.0  # + right, - left
+        self.direction = (STILL, 0.0)
+        self.white_count = 0
 
+        self.last_raw      = None   # (r, g, b, clear) of the latest reading
+        self.last_features = None   # (brightness, whiteness, lineness, error) or None
 
     def reset(self):
         """Reset all units and forget their history."""
-        self.imu_compass.reset()
         self.turn_angle = 0.0
         self.direction = (STILL, 0.0)
+
+    def measure_distance(self, samples=20):
+        """Measures and returns the distance from the average voltage of N sample."""
+        avg_volts = sum(self.infra_sensor.value for _ in range(samples)) / samples * 3.3
+        self.distance = 67.7 / (avg_volts + 0.144) - 5.6
+        return avg_volts
+
+    def read_line(self):
+        """Return lineness in [0, 1] (0 = white canvas, 1 = on the line), or None.
+ 
+        None means the reading is unreliable (blocked or saturated).
+        """
+        r, g, b, clear = self.color_sensor.color_raw
+        self.last_raw = r, g, b, clear
+        if clear <= 0 or clear >= self.saturation:
+            self.last_features = None
+            return None
+
+        wr, wg, wb, wc = self.white_refs
+        whiteness = min(r / wr, g / wg, b / wb)
+        lineness = (WHITE_WHITENESS - whiteness) / (WHITE_WHITENESS - LINE_WHITENESS)
+        lineness = max(0.0, min(1.0, lineness))
+
+        self.last_features = (clear / wc, whiteness, lineness, 0.5 - lineness)
+        return lineness
+
+    def next_direction(self):
+        """Read the sensor and return (direction, turn_angle).
+ 
+        Proportional edge following. The target is the edge (lineness 0.5):
+          more white than target -> turn toward the line side
+          more line than target  -> turn toward the white side
+        Fully white for LOST_TICKS readings in a row -> STILL (line lost).
+        """
+        lineness = self.read_line()
+        if lineness is None:
+            return self.direction  # bad reading: keep the last command
+
+        if lineness <= 0.0:
+            self.white_count += 1
+            if self.white_count >= LOST_TICKS:
+                self.turn_angle = 0.0
+                self.direction = (STILL, 0.0)
+                return self.direction
+        else:
+            self.white_count = 0
+
+        # error > 0: too far onto white. LEFT_EDGE has the line on the right,
+        # so a positive error means turn right (+).
+        error = 0.5 - lineness
+        self.turn_angle = self.edge * (error / 0.5) * MAX_TURN_ANGLE
+
+        if abs(self.turn_angle) < FORWARD_DEADBAND:
+            self.direction = (FORWARD, self.turn_angle)
+        elif self.turn_angle > 0:
+            self.direction = (RIGHT, self.turn_angle)
+        else:
+            self.direction = (LEFT, self.turn_angle)
+        return self.direction
+
+    def shutdown(self):
+        """Close/shut down all units."""
+        self.color_sensor.active = False
+        self.infra_sensor.close()
 
     def _calibrate_white(self, samples=10):
         """Optional: replace WHITE_REF with a fresh reading. Sensor must be over clean white."""
@@ -67,7 +145,7 @@ class CoordinationController:
             for i, value in enumerate(self.color_sensor.color_raw):
                 totals[i] += value
         ref = tuple(t / samples for t in totals)
- 
+    
         if ref[3] >= self.saturation:
             raise RuntimeError(
                 f"White saturates the sensor (C={ref[3]:.0f}, limit={self.saturation}). "
@@ -78,78 +156,3 @@ class CoordinationController:
 
         self.white_refs = ref
         return ref
-
-    def measure_distance(self, samples=20):
-        """Measures and returns the distance from the average voltage of N sample."""
-        avg_volts = sum(self.infra_sensor.value for _ in range(samples)) / samples * 3.3
-        self.distance = 67.7 / (avg_volts + 0.144) - 5.6
-        return avg_volts
-
-    def read_color_features(self):
-        """Return (brightness, imbalance, green_share, blue_share, red_share) or None.
-         
-        Channels are white-balanced against white_ref, so clean white gives
-        ~1.0 per channel and equal shares of ~0.33. None means the reading is
-        unreliable (dark/blocked or saturated).
-        """
-        r, g, b, clear = self.color_sensor.color_raw
-        if clear <= 0 or clear >= self.saturation:
-            return None
-    
-        wr, wg, wb, wc = self.white_refs
-        rn, gn, bn = r / wr, g / wg, b / wb
-        total = rn + gn + bn
-        if total <= 0:
-            return None
-    
-        brightness = clear / wc
-        peak = max(rn, gn, bn)
-        imbalance = (peak - min(rn, gn, bn)) / peak
-
-        self.last_raw      = r, g, b, clear
-        self.last_features = brightness, imbalance, gn / total, bn / total, rn / total
-        return self.last_features
-
-    def next_direction(self):
-        """Takes a reading of the current track layout and finds the next direction.
- 
-        Line stripes from left to right: green | blue | red.
-          over blue  -> centred, go forward
-          over green -> robot is left of the line, turn right (+)
-          over red   -> robot is right of the line, turn left (-)
-          over white -> lost, keep turning the way we last turned
-        """
-        features = self.read_color_features()
-        if features is None:
-            return self.direction  # bad reading: keep the last command
- 
-        brightness, imbalance, green_share, _blue_share, red_share = features
- 
-        # Case 1: on white, the line is lost. Search toward where it was last seen.
-        if brightness >= WHITE_MIN_BRIGHTNESS and imbalance <= WHITE_MAX_IMBALANCE:
-            if self.turn_angle > 0:
-                self.direction = (RIGHT, MAX_TURN_ANGLE)
-            elif self.turn_angle < 0:
-                self.direction = (LEFT, -MAX_TURN_ANGLE)
-            else:
-                self.direction = (STILL, 0.0)  # no idea which side it went; let caller decide
-            return self.direction
- 
-        # Case 2: on the line. Steer proportionally to green vs red.
-        error = green_share - red_share            # + = too far left, - = too far right
-        scaled = max(-1.0, min(1.0, error / FULL_ERROR))
-        self.turn_angle = scaled * MAX_TURN_ANGLE
- 
-        if abs(self.turn_angle) < FORWARD_DEADBAND:
-            self.direction = (FORWARD, 0.0)
-        elif self.turn_angle > 0:
-            self.direction = (RIGHT, self.turn_angle)
-        else:
-            self.direction = (LEFT, self.turn_angle)
-        return self.direction
-
-
-    def shutdown(self):
-        """Close/shut down all units."""
-        self.color_sensor.active = False
-        self.infra_sensor.close()
