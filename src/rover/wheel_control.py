@@ -24,7 +24,7 @@ LOOP_DT = 0.05     # 20 Hz control loop
 
 # Speed filter: 1.0 = no filtering. 0.5 added about a tick of lag, which made
 # the wheels answer steering commands ~3 ticks (150 ms) late.
-FILTER_ALPHA = 1.0
+FILTER_ALPHA = 0.75
 
 
 MAX_ACCEL = 8000   # steps/s^2, ramp limit on the target
