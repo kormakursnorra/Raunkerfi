@@ -29,7 +29,7 @@ STEER_GAIN       = 0.5        # fraction of MAX_TURN_ANGLE used at full error. 1
                               # behaviour (pivot every time): wobbled with a 0.5 s period
                               # while the circle only needed ~8 deg on average.
 FORWARD_DEADBAND = 5.0        # degrees; smaller turns are labelled FORWARD (angle is kept)
-WHITE_BOOST      = 4.5        # extra degrees per all-white tick: 22.5 -> 45 in 5 ticks (0.25 s)
+WHITE_BOOST      = 2.5        # extra degrees per all-white tick: 22.5 -> 45 in 5 ticks (0.25 s)
 SEARCH_TICKS     = 14         # all-white this long (0.7 s): assume we crossed the line, switch edge
 LOST_TICKS       = 40         # report STILL after this many all-white readings in a row
 
