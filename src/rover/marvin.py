@@ -52,7 +52,7 @@ class Marvin:
                 # for accuracy, distance is measured by voltage
                 distance = self.coordination.measure_distance()
                 if distance >= STOP_VOLTS:
-                    return f"Object at about 20 cm  ({distance:.2f} V)"
+                    continue
 
                 t_now  = monotonic()
                 dtime  = t_now - t_last
