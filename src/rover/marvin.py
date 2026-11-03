@@ -5,7 +5,7 @@ from .log_run import RunLogger, default_log_path
 from .wheel_control import DriveController, LOOP_DT
 from .coordination import CoordinationController, MAX_TURN_ANGLE, STILL
 
-BASE_SPPED  = 425   # constant speed for following the line
+BASE_SPPED  = 325   # constant speed for following the line
 STOP_VOLTS  = 2.52  # IR voltage at around 20 cm
 STILL_TICKS = 10    # stop after this many consecutive STILL ticks  (0.5 s)
 
